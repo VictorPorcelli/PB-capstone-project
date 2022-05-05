@@ -1,0 +1,63 @@
+---
+title: "cluster_income_data"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+```
+
+#Load the file
+```{r}
+income_data <- read.csv("/Users/victorporcelli/Desktop/PB Data Analysis/Grouping CTs/Convert Data/income_data_clustered_03.14.22.csv")
+pop_data <- read.csv("/Users/victorporcelli/Desktop/PB Data Analysis/Grouping CTs/Convert Data/ct_population_00-10 copy.csv")
+
+pop_data[4] <- sapply(pop_data$X2010.Census.Tract, function(x) as.character(x))
+```
+
+#Translate Census Tract Label for Population Data
+```{r}
+reformat_tract <- function(tract, boro_code){
+  if (!is.null(tract)) {
+    x <- 6 - as.numeric(nchar(tract))
+    if (x>0) {
+      for (i in 1:x){
+        tract <- paste('0', tract, sep = '', collapse = '')
+      }
+    }
+    tract <- paste(as.character(boro_code),tract,sep="")
+  }
+  tract
+}
+
+pop_data <- pop_data %>% 
+  rowwise() %>% 
+  mutate(X2010.Census.Tract = reformat_tract(X2010.Census.Tract, X2010.DCP.Borough.Code)) %>% 
+  ungroup()
+
+pop_data <- pop_data[c(4,6)]
+```
+
+#Merge Population & Income Data
+```{r}
+income_data <- merge(income_data, pop_data, by.x = "Census.Tract", by.y = "X2010.Census.Tract")
+income_data <- income_data %>% filter(Median.Income != '-')
+```
+
+
+#Convert from CT to Cluster
+```{r}
+income_data$X2010.Population <- sapply(income_data$X2010.Population, function(x) as.numeric(str_replace(x, ",", "")))
+
+income_data <- income_data %>% group_by(Cluster) %>% mutate (Cluster.Population = sum(X2010.Population)) %>% ungroup() %>% filter(!(Median.Income == '-')) %>% mutate(Weighted.Mean.Value = as.numeric(Median.Income)* (X2010.Population/Cluster.Population)) %>% group_by(Cluster) %>% mutate(Avg.Median.Income = sum(Weighted.Mean.Value)) %>% group_by(Cluster) %>% select(2,7) %>% distinct
+  
+```
+
+#Export the data
+```{r}
+write.csv(income_data, "/Users/victorporcelli/Desktop/PB Data Analysis/Grouping CTs/Convert Data/income_data_aggregate_03.14.22.csv")
+```

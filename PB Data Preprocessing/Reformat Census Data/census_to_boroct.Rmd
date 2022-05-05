@@ -1,0 +1,57 @@
+---
+title: "census_to_boroct"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+```
+
+#Load Data
+```{r}
+income_data <- read.csv("/Users/victorporcelli/Desktop/PB Data Analysis/CT to NTA/ACSST5Y2011.S1903_data_with_overlays_2022-02-01T183920.csv")
+```
+
+#Create Function
+```{r}
+reformat_tract <- function(tract){
+  county_code <- substr(tract, 1, 3)
+  boroct <- substr(tract, 4, nchar(tract))
+  if (county_code == "005"){
+    boroct <- paste("2",boroct,sep = "", collapse = "")
+  }else if (county_code == "047"){
+    boroct <- paste("3",boroct,sep = "", collapse = "")
+  }else if (county_code == "061"){
+    boroct <- paste("1",boroct,sep = "", collapse = "")
+  }else if (county_code == "081"){
+    boroct <- paste("4",boroct,sep = "", collapse = "")
+  }else if (county_code == "085"){
+    boroct <- paste("5",boroct,sep = "", collapse = "")
+  }
+  boroct
+}
+```
+
+
+#Mutate Data
+```{r}
+income_data <- income_data[c(1,63)]
+income_data <- income_data[-c(1),]
+income_data <- income_data %>% mutate(GEO_ID = substr(GEO_ID, nchar(GEO_ID)-8,nchar(GEO_ID)))
+income_data$GEO_ID <- sapply(income_data$GEO_ID, reformat_tract)
+```
+
+#Output Data
+```{r}
+colnames(income_data) <- c("BoroCT", "2011 Household Median Income")
+write.csv(income_data, "/Users/victorporcelli/Desktop/PB Data Analysis/Grouping CTs/income_data_boroct_03.20.22.csv")
+```
+
+```{r}
+num_missing <- income_data %>% filter(income_data$S1903_C02_001E == "-") %>% summarise(num_NA = n())
+```
+
